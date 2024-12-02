@@ -58,14 +58,13 @@ fn is_safe_naive(iterator: &mut dyn Iterator<Item = i32>) -> bool {
     }
 
     for i in 0..collection.len() {
-        let without_i = collection
+        let mut without_i = collection
             .iter()
             .copied()
             .enumerate()
             .filter(|&(j, _)| j != i)
-            .map(|(_, v)| v)
-            .collect::<Vec<i32>>();
-        if is_safe(&mut without_i.iter().copied()) {
+            .map(|(_, v)| v);
+        if is_safe(&mut without_i) {
             return true;
         }
     }
