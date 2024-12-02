@@ -10,7 +10,7 @@
 use std::collections::HashMap;
 
 #[aoc(day1, part1, Chars)]
-pub fn part1_chars(input: &str) -> i32 {
+pub fn part1(input: &str) -> i32 {
     let lines = input.lines();
 
     let mut first_vector = Vec::new();
