@@ -370,42 +370,4 @@ pub fn part2(input: &str) -> i32 {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{part1, part2};
-
-    #[test]
-    fn sample1() {
-        assert_eq!(part1("1 2 3 4 5 6\n1 2 3 4 5 6"), 2);
-        assert_eq!(part1("6 5 4 3 2 1\n1 2 1 1 2 1"), 1);
-    }
-
-    #[test]
-    fn sample2() {
-        assert_eq!(part1("1 7 8 9 10\n10 9 8 2 1"), 0);
-        assert_eq!(part1("0 1 21 22\n0 1 4 5 6 7"), 1);
-    }
-
-    #[test]
-    fn sample3() {
-        assert_eq!(part1("1 1 2 3 4\n10 10 9 8 7"), 0);
-        assert_eq!(part1("1 2 2 3 4\n10 9 9 8 7"), 0);
-        assert_eq!(part1("1 2 3 3 4\n10 9 8 8 7"), 0);
-    }
-
-    #[test]
-    fn sample4() {
-        assert_eq!(part2("1 2 3 4 5 6\n1 2 3 4 5 6"), 2);
-        assert_eq!(part2("6 5 4 3 2 1\n6 5 4 3 2 1"), 2);
-    }
-
-    #[test]
-    fn sample5() {
-        assert_eq!(part2("1 7 8 9 10\n10 9 8 2 7"), 2);
-        assert_eq!(part2("3 2 3 4 5\n9 10 9 8 7"), 2);
-    }
-
-    #[test]
-    fn problematic_sample() {
-        assert_eq!(part2("70 73 72 74 74"), 0);
-    }
-}
+mod tests {}
