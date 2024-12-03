@@ -1,368 +1,147 @@
-enum State {
-    Nothing,
-    M,
-    U,
-    L,
-    OpeningBracket,
-    FirstNumber0,
-    FirstNumber1,
-    FirstNumber2,
-    Comma,
-    SecondNumber0,
-    SecondNumber1,
-    SecondNumber2,
-    ClosingBracket,
-}
+use memchr::memmem;
 
 #[aoc(day3, part1)]
 pub fn part1(input: &str) -> i32 {
-    let mut state = State::Nothing;
+    let needle = "mul(";
 
-    let mut num1 = 0;
-    let mut num2 = 0;
+    let mut it = memmem::find_iter(input.as_bytes(), needle);
+
+    let comma_finder = memmem::Finder::new(",");
+    let closing_bracket_finder = memmem::Finder::new(")");
+
     let mut sum = 0;
+    while let Some(pos) = it.next() {
+        let window_start_pos = pos + needle.len();
+        let window_end_pos = window_start_pos + 8;
+        let window = &input[window_start_pos..window_end_pos];
 
-    for c in input.chars() {
-        if c == 'm' {
-            state = State::M;
-            num1 = 0;
-            num2 = 0;
-            continue;
-        }
+        let comma_pos = comma_finder.find(window.as_bytes());
+        let closing_bracket_pos = closing_bracket_finder.find(window.as_bytes());
 
-        match state {
-            State::M => {
-                state = match c {
-                    'u' => State::U,
-                    _ => State::Nothing,
-                }
+        if let (Some(comma_pos), Some(closing_bracket_pos)) = (comma_pos, closing_bracket_pos) {
+            let number1 = window[0..comma_pos].parse::<i32>();
+            let number2 = window[(comma_pos + 1)..closing_bracket_pos].parse::<i32>();
+
+            if number1.is_err() || number2.is_err() {
+                continue;
             }
-            State::U => {
-                state = match c {
-                    'l' => State::L,
-                    _ => State::Nothing,
-                }
-            }
-            State::L => {
-                state = match c {
-                    '(' => State::OpeningBracket,
-                    _ => State::Nothing,
-                }
-            }
-            State::OpeningBracket => {
-                state = match c {
-                    '0'..='9' => {
-                        num1 = c.to_digit(10).unwrap() as i32;
-                        State::FirstNumber0
-                    }
-                    ',' => State::Comma,
-                    _ => State::Nothing,
-                }
-            }
-            State::FirstNumber0 => {
-                state = match c {
-                    '0'..='9' => {
-                        num1 = num1 * 10 + c.to_digit(10).unwrap() as i32;
-                        State::FirstNumber1
-                    }
-                    ',' => State::Comma,
-                    _ => State::Nothing,
-                }
-            }
-            State::FirstNumber1 => {
-                state = match c {
-                    '0'..='9' => {
-                        num1 = num1 * 10 + c.to_digit(10).unwrap() as i32;
-                        State::FirstNumber2
-                    }
-                    ',' => State::Comma,
-                    _ => State::Nothing,
-                }
-            }
-            State::FirstNumber2 => {
-                state = match c {
-                    ',' => State::Comma,
-                    _ => State::Nothing,
-                }
-            }
-            State::Comma => {
-                state = match c {
-                    '0'..='9' => {
-                        num2 = c.to_digit(10).unwrap() as i32;
-                        State::SecondNumber0
-                    }
-                    _ => State::Nothing,
-                }
-            }
-            State::SecondNumber0 => {
-                state = match c {
-                    '0'..='9' => {
-                        num2 = num2 * 10 + c.to_digit(10).unwrap() as i32;
-                        State::SecondNumber1
-                    }
-                    ')' => {
-                        sum += num1 * num2;
-                        State::ClosingBracket
-                    }
-                    _ => State::Nothing,
-                }
-            }
-            State::SecondNumber1 => {
-                state = match c {
-                    '0'..='9' => {
-                        num2 = num2 * 10 + c.to_digit(10).unwrap() as i32;
-                        State::SecondNumber2
-                    }
-                    ')' => {
-                        sum += num1 * num2;
-                        State::ClosingBracket
-                    }
-                    _ => State::Nothing,
-                }
-            }
-            State::SecondNumber2 => {
-                state = match c {
-                    ')' => {
-                        sum += num1 * num2;
-                        State::ClosingBracket
-                    }
-                    _ => State::Nothing,
-                }
-            }
-            State::ClosingBracket => {
-                state = State::Nothing;
-            }
-            State::Nothing => {}
+            sum += number1.unwrap() * number2.unwrap();
         }
     }
 
     sum
 }
 
-enum State2 {
-    Nothing,
-    M,
-    U,
-    L,
-    OpeningBracketForMul,
-    FirstNumber0,
-    FirstNumber1,
-    FirstNumber2,
-    Comma,
-    SecondNumber0,
-    SecondNumber1,
-    SecondNumber2,
-    ClosingBracketForMul,
-    D,
-    O,
-    N,
-    APOSTROPHE,
-    T,
-    OpeningBracketForDo,
-    ClosingBracketForDo,
-    OpeningBracketForDont,
-    ClosingBracketForDont,
+enum PotentiallyConsumedPosition {
+    NonConsumed(Option<usize>),
+    Consumed,
+}
+
+impl PartialEq for PotentiallyConsumedPosition {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                PotentiallyConsumedPosition::NonConsumed(a),
+                PotentiallyConsumedPosition::NonConsumed(b),
+            ) => a == b,
+            (PotentiallyConsumedPosition::Consumed, PotentiallyConsumedPosition::Consumed) => true,
+            _ => false,
+        }
+    }
+}
+
+fn is_optional_pos_smaller(a: Option<usize>, b: Option<usize>) -> bool {
+    match (a, b) {
+        (Some(a), Some(b)) => a < b,
+        (Some(_), None) => true,
+        _ => false,
+    }
 }
 
 #[aoc(day3, part2)]
 pub fn part2(input: &str) -> i32 {
-    let mut state = State2::Nothing;
+    let mut mul_it = memmem::find_iter(input.as_bytes(), "mul(");
+    let mut do_it = memmem::find_iter(input.as_bytes(), "do()");
+    let mut dont_it = memmem::find_iter(input.as_bytes(), "don't()");
 
-    let mut is_enabled = true;
-    let mut num1 = 0;
-    let mut num2 = 0;
+    let comma_finder = memmem::Finder::new(",");
+    let closing_bracket_finder = memmem::Finder::new(")");
+
+    let mut is_mul_enabled = true;
+
     let mut sum = 0;
 
-    for c in input.chars() {
-        if c == 'm' {
-            state = State2::M;
-            num1 = 0;
-            num2 = 0;
-            continue;
+    let mut mul_pos = PotentiallyConsumedPosition::NonConsumed(mul_it.next());
+    let mut do_pos = PotentiallyConsumedPosition::NonConsumed(do_it.next());
+    let mut dont_pos = PotentiallyConsumedPosition::NonConsumed(dont_it.next());
+
+    let mut find_next_pos = || -> Option<usize> {
+        if mul_pos == PotentiallyConsumedPosition::Consumed {
+            mul_pos = PotentiallyConsumedPosition::NonConsumed(mul_it.next());
+        }
+        if do_pos == PotentiallyConsumedPosition::Consumed {
+            do_pos = PotentiallyConsumedPosition::NonConsumed(do_it.next());
+        }
+        if dont_pos == PotentiallyConsumedPosition::Consumed {
+            dont_pos = PotentiallyConsumedPosition::NonConsumed(dont_it.next());
         }
 
-        if c == 'd' {
-            state = State2::D;
-            continue;
+        let mut result = None;
+
+        if let PotentiallyConsumedPosition::NonConsumed(mul_pos_value) = mul_pos {
+            if let PotentiallyConsumedPosition::NonConsumed(do_pos_value) = do_pos {
+                if let PotentiallyConsumedPosition::NonConsumed(dont_pos_value) = dont_pos {
+                    if is_optional_pos_smaller(mul_pos_value, do_pos_value)
+                        && is_optional_pos_smaller(mul_pos_value, dont_pos_value)
+                    {
+                        result = mul_pos_value;
+                        mul_pos = PotentiallyConsumedPosition::Consumed;
+                    } else if is_optional_pos_smaller(do_pos_value, mul_pos_value)
+                        && is_optional_pos_smaller(do_pos_value, dont_pos_value)
+                    {
+                        result = do_pos_value;
+                        do_pos = PotentiallyConsumedPosition::Consumed;
+                    } else if is_optional_pos_smaller(dont_pos_value, mul_pos_value)
+                        && is_optional_pos_smaller(dont_pos_value, do_pos_value)
+                    {
+                        result = dont_pos_value;
+                        dont_pos = PotentiallyConsumedPosition::Consumed;
+                    }
+                }
+            }
         }
 
-        match state {
-            State2::M => {
-                state = match c {
-                    'u' => State2::U,
-                    _ => State2::Nothing,
-                }
-            }
-            State2::U => {
-                state = match c {
-                    'l' => State2::L,
-                    _ => State2::Nothing,
-                }
-            }
-            State2::L => {
-                state = match c {
-                    '(' => State2::OpeningBracketForMul,
-                    _ => State2::Nothing,
-                }
-            }
-            State2::OpeningBracketForMul => {
-                state = match c {
-                    '0'..='9' => {
-                        if is_enabled {
-                            num1 = c.to_digit(10).unwrap() as i32;
-                        }
-                        State2::FirstNumber0
-                    }
-                    ',' => State2::Comma,
-                    _ => State2::Nothing,
-                }
-            }
-            State2::FirstNumber0 => {
-                state = match c {
-                    '0'..='9' => {
-                        if is_enabled {
-                            num1 = num1 * 10 + c.to_digit(10).unwrap() as i32;
-                        }
-                        State2::FirstNumber1
-                    }
-                    ',' => State2::Comma,
-                    _ => State2::Nothing,
-                }
-            }
-            State2::FirstNumber1 => {
-                state = match c {
-                    '0'..='9' => {
-                        if is_enabled {
-                            num1 = num1 * 10 + c.to_digit(10).unwrap() as i32;
-                        }
-                        State2::FirstNumber2
-                    }
-                    ',' => State2::Comma,
-                    _ => State2::Nothing,
-                }
-            }
-            State2::FirstNumber2 => {
-                state = match c {
-                    ',' => State2::Comma,
-                    _ => State2::Nothing,
-                }
-            }
-            State2::Comma => {
-                state = match c {
-                    '0'..='9' => {
-                        if is_enabled {
-                            num2 = c.to_digit(10).unwrap() as i32;
-                        }
-                        State2::SecondNumber0
-                    }
-                    _ => State2::Nothing,
-                }
-            }
-            State2::SecondNumber0 => {
-                state = match c {
-                    '0'..='9' => {
-                        if is_enabled {
-                            num2 = num2 * 10 + c.to_digit(10).unwrap() as i32;
-                        }
-                        State2::SecondNumber1
-                    }
-                    ')' => {
-                        if is_enabled {
-                            sum += num1 * num2;
-                        }
-                        State2::ClosingBracketForMul
-                    }
-                    _ => State2::Nothing,
-                }
-            }
-            State2::SecondNumber1 => {
-                state = match c {
-                    '0'..='9' => {
-                        if is_enabled {
-                            num2 = num2 * 10 + c.to_digit(10).unwrap() as i32;
-                        }
-                        State2::SecondNumber2
-                    }
-                    ')' => {
-                        if is_enabled {
-                            sum += num1 * num2;
-                        }
-                        State2::ClosingBracketForMul
-                    }
-                    _ => State2::Nothing,
-                }
-            }
-            State2::SecondNumber2 => {
-                state = match c {
-                    ')' => {
-                        if is_enabled {
-                            sum += num1 * num2;
-                        }
-                        State2::ClosingBracketForMul
-                    }
-                    _ => State2::Nothing,
-                }
-            }
-            State2::ClosingBracketForMul => {
-                state = State2::Nothing;
-            }
-            State2::Nothing => {}
-            State2::D => {
-                state = match c {
-                    'o' => State2::O,
-                    _ => State2::Nothing,
-                };
-            }
-            State2::O => {
-                state = match c {
-                    'n' => State2::N,
-                    '(' => State2::OpeningBracketForDo,
-                    _ => State2::Nothing,
-                };
-            }
-            State2::N => {
-                state = match c {
-                    '\'' => State2::APOSTROPHE,
-                    _ => State2::Nothing,
-                };
-            }
-            State2::APOSTROPHE => {
-                state = match c {
-                    't' => State2::T,
-                    _ => State2::Nothing,
-                };
-            }
-            State2::T => {
-                state = match c {
-                    '(' => State2::OpeningBracketForDont,
-                    _ => State2::Nothing,
-                };
-            }
-            State2::OpeningBracketForDont => {
-                state = match c {
-                    ')' => {
-                        is_enabled = false;
+        return result;
+    };
 
-                        State2::ClosingBracketForDont
+    while let Some(pos) = find_next_pos() {
+        if input.as_bytes()[pos] == b'm' {
+            if is_mul_enabled {
+                let window_start_pos = pos + "mul(".len();
+                let window_end_pos = window_start_pos + 8;
+                let window = &input[window_start_pos..window_end_pos];
+
+                let comma_pos = comma_finder.find(window.as_bytes());
+                let closing_bracket_pos = closing_bracket_finder.find(window.as_bytes());
+
+                if let (Some(comma_pos), Some(closing_bracket_pos)) =
+                    (comma_pos, closing_bracket_pos)
+                {
+                    let number1 = window[0..comma_pos].parse::<i32>();
+                    let number2 = window[(comma_pos + 1)..closing_bracket_pos].parse::<i32>();
+
+                    if number1.is_err() || number2.is_err() {
+                        continue;
                     }
-                    _ => State2::Nothing,
-                };
+                    sum += number1.unwrap() * number2.unwrap();
+                }
             }
-            State2::ClosingBracketForDont => {
-                state = State2::Nothing;
-            }
-            State2::OpeningBracketForDo => {
-                state = match c {
-                    ')' => {
-                        is_enabled = true;
-                        State2::ClosingBracketForDo
-                    }
-                    _ => State2::Nothing,
-                };
-            }
-            State2::ClosingBracketForDo => {
-                state = State2::Nothing;
-            }
+        } else if input.as_bytes()[pos + 2] == b'(' {
+            is_mul_enabled = true;
+        } else if input.as_bytes()[pos + 2] == b'n' {
+            is_mul_enabled = false;
+        } else {
+            continue;
         }
     }
 
